@@ -42,37 +42,44 @@ internal class Program
       Required = false
     };
 
-    Option<FileInfo> userFileOption = new("--userFile")
+    Option<FileInfo> userFileOption = new("--user-file")
     {
       Description = "Path to the last.fm user file",
       Required = false
     };
+    userFileOption.Aliases.Add("--userFile");
 
     // scrobble specific options
-    Option<FileInfo> configFileOption = new("--configFile")
+    Option<FileInfo> configFileOption = new("--config-file")
     {
       Description = "Path to the parser configuration file",
       Required = false
     };
+    configFileOption.Aliases.Add("--configFile");
 
     // create task specific options
-    Option<DateTime?> taskTimeOption = new("--taskTime")
+    Option<DateTime?> taskTimeOption = new("--task-time")
     {
       Description = "Time when the task should be run daily",
       Required = false
     };
+    taskTimeOption.Aliases.Add("--taskTime");
 
-    Option<int> dayIntervalOption = new("--dayInterval")
+    Option<int> dayIntervalOption = new("--day-interval")
     {
       Description = "How many days between each task run",
       Required = false,
       DefaultValueFactory = (a) => 1
     };
+    dayIntervalOption.Aliases.Add("--dayInterval");
 
     RootCommand rootCommand = new("Scrubbler Command Line Interface");
     rootCommand.Options.Add(fileDirectoryOption);
     rootCommand.Options.Add(configFileOption);
     rootCommand.Options.Add(userFileOption);
+    rootCommand.Options.Add(modeOption);
+    rootCommand.Options.Add(taskTimeOption);
+    rootCommand.Options.Add(dayIntervalOption);
 
     ParseResult parseResult = rootCommand.Parse(args);
     if (parseResult.Errors.Count > 0)
@@ -85,23 +92,36 @@ internal class Program
       return 1;
     }
 
-    try
+    rootCommand.SetAction(parseResult =>
     {
       var mode = parseResult.GetValue(modeOption);
-      if (mode == Mode.Scrobble)
-        return Scrobble(parseResult, fileDirectoryOption, userFileOption, configFileOption);
-      else if (mode == Mode.CreateTask)
-        return CreateTask(parseResult, fileDirectoryOption, userFileOption, taskTimeOption, dayIntervalOption);
-      else if (mode == Mode.RemoveTask)
-        return RemoveTask();
-      else
-        throw new Exception($"Unknown mode: {mode}");
-    }
-    catch (Exception ex)
-    {
-      Console.Error.WriteLine(ex.Message);
-      return 1;
-    }
+
+      try
+      {
+        switch (mode)
+        {
+          case Mode.Scrobble:
+            Scrobble(parseResult, fileDirectoryOption, userFileOption, configFileOption);
+            break;
+          case Mode.CreateTask:
+            CreateTask(parseResult, fileDirectoryOption, userFileOption, taskTimeOption, dayIntervalOption);
+            break;
+          case Mode.RemoveTask:
+            RemoveTask();
+            break;
+          default: throw new Exception($"Unknown mode: {mode}");
+        }
+      }
+      catch (Exception ex)
+      {
+        Console.Error.WriteLine(ex.Message);
+        return 1;
+      }
+
+      return 0;
+    });
+
+    return rootCommand.Parse(args).Invoke();
   }
 
   #region Scrobble
